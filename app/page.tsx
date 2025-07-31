@@ -1,111 +1,39 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-
-// Tipos básicos
-interface Venda {
-  id: string;
-  data: string;
-  ano: number;
-  mes: number;
-  dia: number;
-  quantidade: number;
-  valorBruto: number;
-  valorLiquido: number;
-  tipoReceita: string;
-}
-
-interface Despesa {
-  id: string;
-  data: string;
-  ano: number;
-  mes: number;
-  dia: number;
-  valor: number;
-  categoria: string;
-  tipo: string;
-  ehInvestimento?: boolean;
-}
-
-interface KPIs {
-  receitaBruta: number;
-  receitaLiquida: number;
-  lucroLiquido: number;
-  ticketMedio: number;
-  totalVendas: number;
-  roi: number;
-  gastosPessoais: number;
-  gastosProfissionais: number;
-  despesasFixas: number;
-  despesasVariaveis: number;
-  totalDespesas: number;
-  investimentoTotal: number;
-  roiAplicavel: boolean;
-}
-
-// Storage básico
-const Storage = {
-  carregarVendas: (): Venda[] => {
-    if (typeof window === 'undefined') return [];
-    const data = localStorage.getItem('vendas');
-    return data ? JSON.parse(data) : [];
-  },
-  
-  carregarDespesas: (): Despesa[] => {
-    if (typeof window === 'undefined') return [];
-    const data = localStorage.getItem('despesas');
-    return data ? JSON.parse(data) : [];
-  }
-};
-
-// Cálculo de KPIs básico
-function calcularKPIs(vendas: Venda[], despesas: Despesa[]): KPIs {
-  const receitaBruta = vendas.reduce((sum, venda) => sum + venda.valorBruto, 0);
-  const receitaLiquida = vendas.reduce((sum, venda) => sum + venda.valorLiquido, 0);
-  const totalVendas = vendas.length;
-  const ticketMedio = totalVendas > 0 ? receitaBruta / totalVendas : 0;
-
-  const gastosPessoais = despesas
-    .filter(d => d.tipo === 'pessoal')
-    .reduce((sum, despesa) => sum + despesa.valor, 0);
-
-  const gastosProfissionais = despesas
-    .filter(d => d.tipo === 'variavel')
-    .reduce((sum, despesa) => sum + despesa.valor, 0);
-
-  const despesasFixas = despesas
-    .filter(d => d.tipo === 'fixa')
-    .reduce((sum, despesa) => sum + despesa.valor, 0);
-
-  const despesasVariaveis = despesas
-    .filter(d => d.tipo === 'variavel')
-    .reduce((sum, despesa) => sum + despesa.valor, 0);
-
-  const investimentoTotal = despesas
-    .filter(despesa => despesa.ehInvestimento === true)
-    .reduce((sum, despesa) => sum + despesa.valor, 0);
-
-  const totalDespesas = gastosPessoais + despesasFixas + despesasVariaveis;
-  const lucroLiquido = receitaLiquida - totalDespesas;
-  const roiAplicavel = investimentoTotal > 0;
-  const roi = roiAplicavel ? (lucroLiquido / investimentoTotal) * 100 : 0;
-
-  return {
-    receitaBruta: Math.round(receitaBruta * 100) / 100,
-    receitaLiquida: Math.round(receitaLiquida * 100) / 100,
-    lucroLiquido: Math.round(lucroLiquido * 100) / 100,
-    ticketMedio: Math.round(ticketMedio * 100) / 100,
-    totalVendas,
-    roi: Math.round(roi * 100) / 100,
-    gastosPessoais: Math.round(gastosPessoais * 100) / 100,
-    gastosProfissionais: Math.round(gastosProfissionais * 100) / 100,
-    despesasFixas: Math.round(despesasFixas * 100) / 100,
-    despesasVariaveis: Math.round(despesasVariaveis * 100) / 100,
-    totalDespesas: Math.round(totalDespesas * 100) / 100,
-    investimentoTotal: Math.round(investimentoTotal * 100) / 100,
-    roiAplicavel
-  };
-}
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ImportCSV } from '@/components/import-csv';
+import { KPICards } from '@/components/kpi-cards';
+import { MonthSelector } from '@/components/month-selector';
+import { DateRangeFilter } from '@/components/date-range-filter';
+import { RevenueChart } from '@/components/charts/revenue-chart';
+import { ExpensesChart } from '@/components/charts/expenses-chart';
+import { FinancialCalendar } from '@/components/financial-calendar';
+import { ExpenseManager } from '@/components/expense-manager';
+import { RevenueManager } from '@/components/revenue-manager';
+import { DataExport } from '@/components/data-export';
+import { Storage } from '@/lib/storage';
+import { calcularKPIs } from '@/lib/kpi-calculator';
+import { filtrarVendasPorData, filtrarDespesasPorData, obterPeriodoFormatado } from '@/lib/date-filter';
+import { Venda, Despesa, KPIs, MesAno, FiltroData } from '@/types';
+import { 
+  DollarSign, 
+  TrendingUp, 
+  ShoppingCart, 
+  RefreshCw, 
+  User, 
+  Briefcase, 
+  FileText, 
+  Minus,
+  Calendar,
+  Upload,
+  Download,
+  Plus
+} from 'lucide-react';
 
 export default function Home() {
   const [vendas, setVendas] = useState<Venda[]>([]);
@@ -125,20 +53,34 @@ export default function Home() {
     investimentoTotal: 0,
     roiAplicavel: false
   });
+  const [mesAnoSelecionado, setMesAnoSelecionado] = useState<MesAno>({
+    mes: new Date().getMonth() + 1,
+    ano: new Date().getFullYear(),
+    label: `${new Date().toLocaleDateString('pt-BR', { month: 'long' })} ${new Date().getFullYear()}`
+  });
+  const [filtroData, setFiltroData] = useState<FiltroData>({
+    dataInicial: undefined,
+    dataFinal: undefined,
+    ativo: false
+  });
+  const [activeTab, setActiveTab] = useState('dashboard');
 
   const carregarDados = () => {
     const todasVendas = Storage.carregarVendas();
     const todasDespesas = Storage.carregarDespesas();
-
-    const mesAtual = new Date().getMonth() + 1;
-    const anoAtual = new Date().getFullYear();
-
-    const vendasFiltradas = todasVendas.filter(
-      v => v.ano === anoAtual && v.mes === mesAtual
+    
+    let vendasFiltradas = todasVendas.filter(
+      v => v.ano === mesAnoSelecionado.ano && v.mes === mesAnoSelecionado.mes
     );
-    const despesasFiltradas = todasDespesas.filter(
-      d => d.ano === anoAtual && d.mes === mesAtual
+    let despesasFiltradas = todasDespesas.filter(
+      d => d.ano === mesAnoSelecionado.ano && d.mes === mesAnoSelecionado.mes
     );
+
+    // Aplicar filtro de data se ativo
+    if (filtroData.ativo) {
+      vendasFiltradas = filtrarVendasPorData(vendasFiltradas, filtroData);
+      despesasFiltradas = filtrarDespesasPorData(despesasFiltradas, filtroData);
+    }
 
     setVendas(vendasFiltradas);
     setDespesas(despesasFiltradas);
@@ -147,7 +89,19 @@ export default function Home() {
 
   useEffect(() => {
     carregarDados();
-  }, []);
+  }, [mesAnoSelecionado, filtroData]);
+
+  const handleFiltroChange = (novoFiltro: FiltroData) => {
+    setFiltroData(novoFiltro);
+  };
+
+  const handleMesAnoChange = (novoMesAno: MesAno) => {
+    setMesAnoSelecionado(novoMesAno);
+  };
+
+  const handleVendasChange = () => {
+    carregarDados();
+  };
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -156,102 +110,182 @@ export default function Home() {
     }).format(value);
   };
 
+  const periodoFormatado = obterPeriodoFormatado(filtroData, mesAnoSelecionado.label);
+
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#f9fafb' }}>
-      <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '2rem 1rem' }}>
-        {/* Header */}
-        <div style={{ marginBottom: '2rem', textAlign: 'center' }}>
-          <h1 style={{ fontSize: '2.5rem', fontWeight: 'bold', color: '#111827', marginBottom: '0.5rem' }}>
-            NOTCH Gestão Financeira
-          </h1>
-          <p style={{ color: '#6b7280' }}>
-            Dashboard completo para controle financeiro do seu negócio
-          </p>
-        </div>
-
-        {/* KPI Cards */}
-        <div style={{ 
-          display: 'grid', 
-          gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', 
-          gap: '1.5rem', 
-          marginBottom: '2rem' 
-        }}>
-          <div style={{ backgroundColor: 'white', borderRadius: '0.5rem', padding: '1.5rem', boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)' }}>
-            <h3 style={{ fontSize: '0.875rem', fontWeight: '500', color: '#6b7280', marginBottom: '0.5rem' }}>Receita Bruta</h3>
-            <p style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#059669' }}>
-              {formatCurrency(kpis.receitaBruta)}
-            </p>
-          </div>
-          
-          <div style={{ backgroundColor: 'white', borderRadius: '0.5rem', padding: '1.5rem', boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)' }}>
-            <h3 style={{ fontSize: '0.875rem', fontWeight: '500', color: '#6b7280', marginBottom: '0.5rem' }}>Receita Líquida</h3>
-            <p style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#2563eb' }}>
-              {formatCurrency(kpis.receitaLiquida)}
-            </p>
-          </div>
-          
-          <div style={{ backgroundColor: 'white', borderRadius: '0.5rem', padding: '1.5rem', boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)' }}>
-            <h3 style={{ fontSize: '0.875rem', fontWeight: '500', color: '#6b7280', marginBottom: '0.5rem' }}>Lucro Líquido</h3>
-            <p style={{ fontSize: '1.5rem', fontWeight: 'bold', color: kpis.lucroLiquido >= 0 ? '#059669' : '#dc2626' }}>
-              {formatCurrency(kpis.lucroLiquido)}
-            </p>
-          </div>
-          
-          <div style={{ backgroundColor: 'white', borderRadius: '0.5rem', padding: '1.5rem', boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)' }}>
-            <h3 style={{ fontSize: '0.875rem', fontWeight: '500', color: '#6b7280', marginBottom: '0.5rem' }}>Total de Vendas</h3>
-            <p style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#7c3aed' }}>
-              {kpis.totalVendas}
-            </p>
-          </div>
-        </div>
-
-        {/* Stats Section */}
-        <div style={{ 
-          display: 'grid', 
-          gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', 
-          gap: '1.5rem', 
-          marginBottom: '2rem' 
-        }}>
-          <div style={{ backgroundColor: 'white', borderRadius: '0.5rem', padding: '1.5rem', boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)' }}>
-            <h3 style={{ fontSize: '0.875rem', fontWeight: '500', color: '#6b7280', marginBottom: '0.5rem' }}>Ticket Médio</h3>
-            <p style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#2563eb' }}>
-              {formatCurrency(kpis.ticketMedio)}
-            </p>
-          </div>
-          
-          <div style={{ backgroundColor: 'white', borderRadius: '0.5rem', padding: '1.5rem', boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)' }}>
-            <h3 style={{ fontSize: '0.875rem', fontWeight: '500', color: '#6b7280', marginBottom: '0.5rem' }}>ROI</h3>
-            <p style={{ fontSize: '1.5rem', fontWeight: 'bold', color: kpis.roiAplicavel ? (kpis.roi >= 0 ? '#059669' : '#dc2626') : '#6b7280' }}>
-              {kpis.roiAplicavel ? `${kpis.roi.toFixed(1)}%` : 'N/A'}
-            </p>
-          </div>
-          
-          <div style={{ backgroundColor: 'white', borderRadius: '0.5rem', padding: '1.5rem', boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)' }}>
-            <h3 style={{ fontSize: '0.875rem', fontWeight: '500', color: '#6b7280', marginBottom: '0.5rem' }}>Total de Despesas</h3>
-            <p style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#ea580c' }}>
-              {formatCurrency(kpis.totalDespesas)}
-            </p>
-          </div>
-        </div>
-
-        {/* Data Summary */}
-        <div style={{ backgroundColor: 'white', borderRadius: '0.5rem', padding: '1.5rem', boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)' }}>
-          <h2 style={{ fontSize: '1.25rem', fontWeight: '600', color: '#111827', marginBottom: '1rem' }}>Resumo dos Dados</h2>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
-            <div>
-              <h3 style={{ fontSize: '0.875rem', fontWeight: '500', color: '#6b7280', marginBottom: '0.5rem' }}>Vendas Importadas</h3>
-              <p style={{ fontSize: '1.125rem', fontWeight: '600', color: '#111827' }}>{vendas.length} registros</p>
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white">
+      {/* Header */}
+      <div className="border-b border-gray-700 bg-gray-800/50 backdrop-blur-sm">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16">
+            <div className="flex items-center space-x-4">
+              <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
+                Gestão Financeira Digital
+              </h1>
+              <p className="text-gray-400 text-sm hidden md:block">
+                Sistema completo para controle financeiro do seu negócio
+              </p>
             </div>
-            <div>
-              <h3 style={{ fontSize: '0.875rem', fontWeight: '500', color: '#6b7280', marginBottom: '0.5rem' }}>Despesas Cadastradas</h3>
-              <p style={{ fontSize: '1.125rem', fontWeight: '600', color: '#111827' }}>{despesas.length} registros</p>
+            
+            <div className="flex items-center space-x-4">
+              <MonthSelector 
+                mesAno={mesAnoSelecionado} 
+                onMesAnoChange={handleMesAnoChange} 
+              />
+              <Badge variant="secondary" className="bg-gray-700 text-gray-300">
+                {vendas.length} registros
+              </Badge>
             </div>
           </div>
         </div>
+      </div>
 
-        {/* Footer */}
-        <div style={{ textAlign: 'center', fontSize: '0.875rem', color: '#6b7280', marginTop: '2rem' }}>
-          <p>NOTCH Gestão Financeira v1.0 - Desenvolvido com Next.js</p>
+      {/* Navigation Tabs */}
+      <div className="border-b border-gray-700 bg-gray-800/30">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+            <TabsList className="grid w-full grid-cols-6 bg-gray-800/50">
+              <TabsTrigger value="dashboard" className="flex items-center space-x-2">
+                <TrendingUp className="h-4 w-4" />
+                <span className="hidden sm:inline">Dashboard</span>
+              </TabsTrigger>
+              <TabsTrigger value="import" className="flex items-center space-x-2">
+                <Upload className="h-4 w-4" />
+                <span className="hidden sm:inline">Importar</span>
+              </TabsTrigger>
+              <TabsTrigger value="revenues" className="flex items-center space-x-2">
+                <DollarSign className="h-4 w-4" />
+                <span className="hidden sm:inline">Receitas</span>
+              </TabsTrigger>
+              <TabsTrigger value="expenses" className="flex items-center space-x-2">
+                <Minus className="h-4 w-4" />
+                <span className="hidden sm:inline">Despesas</span>
+              </TabsTrigger>
+              <TabsTrigger value="calendar" className="flex items-center space-x-2">
+                <Calendar className="h-4 w-4" />
+                <span className="hidden sm:inline">Calendário</span>
+              </TabsTrigger>
+              <TabsTrigger value="export" className="flex items-center space-x-2">
+                <Download className="h-4 w-4" />
+                <span className="hidden sm:inline">Exportar</span>
+              </TabsTrigger>
+            </TabsList>
+
+            {/* Dashboard Tab */}
+            <TabsContent value="dashboard" className="space-y-6">
+              <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+                {/* Date Range Filter */}
+                <DateRangeFilter 
+                  filtro={filtroData} 
+                  onFiltroChange={handleFiltroChange} 
+                />
+
+                {/* KPIs Section */}
+                <div className="mt-8">
+                  <div className="flex items-center justify-between mb-6">
+                    <h2 className="text-2xl font-bold text-white">
+                      KPIs - {periodoFormatado}
+                    </h2>
+                    <Button 
+                      onClick={carregarDados}
+                      variant="outline" 
+                      size="sm"
+                      className="bg-gray-800/50 border-gray-600 text-gray-300 hover:bg-gray-700"
+                    >
+                      <RefreshCw className="h-4 w-4 mr-2" />
+                      Atualizar
+                    </Button>
+                  </div>
+                  <KPICards kpis={kpis} />
+                </div>
+
+                {/* Charts Section */}
+                <div className="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <RevenueChart vendas={vendas} mesAno={periodoFormatado} />
+                  <ExpensesChart despesas={despesas} mesAno={periodoFormatado} />
+                </div>
+              </div>
+            </TabsContent>
+
+            {/* Import Tab */}
+            <TabsContent value="import" className="space-y-6">
+              <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+                <ImportCSV 
+                  mesAno={mesAnoSelecionado} 
+                  onVendasChange={handleVendasChange} 
+                />
+              </div>
+            </TabsContent>
+
+            {/* Revenues Tab */}
+            <TabsContent value="revenues" className="space-y-6">
+              <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+                <RevenueManager 
+                  mesAno={mesAnoSelecionado} 
+                  onVendasChange={handleVendasChange} 
+                />
+              </div>
+            </TabsContent>
+
+            {/* Expenses Tab */}
+            <TabsContent value="expenses" className="space-y-6">
+              <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+                <ExpenseManager 
+                  despesas={despesas} 
+                  mesAno={mesAnoSelecionado} 
+                  onUpdate={carregarDados} 
+                />
+              </div>
+            </TabsContent>
+
+            {/* Calendar Tab */}
+            <TabsContent value="calendar" className="space-y-6">
+              <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+                <FinancialCalendar 
+                  vendas={vendas} 
+                  despesas={despesas} 
+                  mesAno={mesAnoSelecionado} 
+                />
+              </div>
+            </TabsContent>
+
+            {/* Export Tab */}
+            <TabsContent value="export" className="space-y-6">
+              <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+                <DataExport 
+                  vendas={vendas} 
+                  despesas={despesas} 
+                  kpis={kpis} 
+                  mesAno={periodoFormatado} 
+                />
+              </div>
+            </TabsContent>
+          </Tabs>
+        </div>
+      </div>
+
+      {/* Bottom Summary Bar */}
+      <div className="fixed bottom-0 left-0 right-0 bg-gray-800/90 backdrop-blur-sm border-t border-gray-700">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-12 text-sm">
+            <div className="flex items-center space-x-6">
+              <span className="text-gray-300">
+                {vendas.length} Vendas
+              </span>
+              <span className="text-green-400 font-medium">
+                {formatCurrency(kpis.receitaLiquida)} Receita Liq.
+              </span>
+              <span className="text-red-400 font-medium">
+                {formatCurrency(kpis.totalDespesas)} Despesas
+              </span>
+              <span className="text-gray-400">
+                {kpis.roiAplicavel ? `${kpis.roi.toFixed(1)}% ROI` : 'N/A ROI'}
+              </span>
+            </div>
+            <div className="text-gray-500">
+              {periodoFormatado}
+            </div>
+          </div>
         </div>
       </div>
     </div>
