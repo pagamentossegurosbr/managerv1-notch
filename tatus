@@ -1,0 +1,5 @@
+[33mc759403[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m Add: Configuração Vercel para rebuild limpo
+[33m0ed94bf[m Fix: Package.json ultra-minimalista sem dependências problemáticas
+[33mb5e6e7c[m Fix: Versão ultra-básica sem dependências externas para resolver problemas de build
+[33m16d8c61[m Fix: Versão ultra-simplificada da página principal para resolver problemas de build
+[33m17dca94[m Fix: Versão simplificada da página principal para resolver problemas de build
