@@ -1,21 +1,35 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  output: 'export',
-  trailingSlash: true,
-  eslint: {
-    ignoreDuringBuilds: true,
+  experimental: {
+    esmExternals: false,
   },
   typescript: {
     ignoreBuildErrors: true,
   },
-  images: { 
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
+  output: 'export',
+  trailingSlash: true,
+  images: {
     unoptimized: true,
     loader: 'default',
-    disableStaticImages: true
+    disableStaticImages: true,
   },
-  experimental: {
-    esmExternals: false
-  }
-};
+  webpack: (config, { isServer }) => {
+    // Força limpeza de cache
+    config.cache = false;
+    
+    // Remove dependências problemáticas
+    config.resolve.fallback = {
+      ...config.resolve.fallback,
+      fs: false,
+      net: false,
+      tls: false,
+    };
+    
+    return config;
+  },
+}
 
-module.exports = nextConfig;
+module.exports = nextConfig

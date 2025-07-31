@@ -1,15 +1,16 @@
 {
-  "buildCommand": "npm run build",
-  "installCommand": "npm install --force --no-cache",
+  "buildCommand": "npm run clean && npm run build",
+  "installCommand": "npm install --force --no-cache --production=false",
   "framework": "nextjs",
   "functions": {
     "app/page.tsx": {
-      "maxDuration": 30
+      "maxDuration": 60
     }
   },
   "build": {
     "env": {
-      "NODE_ENV": "production"
+      "NODE_ENV": "production",
+      "NEXT_TELEMETRY_DISABLED": "1"
     }
   }
 } 

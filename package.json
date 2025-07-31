@@ -4,10 +4,11 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "rm -rf .next && next build",
     "start": "next start",
     "lint": "next lint",
-    "export": "next build && next export"
+    "export": "next build && next export",
+    "clean": "rm -rf .next node_modules package-lock.json && npm install"
   },
   "dependencies": {
     "@types/node": "20.6.2",
