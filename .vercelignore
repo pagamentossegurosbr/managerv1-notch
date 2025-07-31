@@ -1,0 +1,13 @@
+# Arquivos de backup
+components_backup/
+hooks_backup/
+lib_backup/
+types_backup/
+
+# Arquivos de desenvolvimento
+.next/
+node_modules/
+*.log
+
+# Arquivos temporários
+tatus 

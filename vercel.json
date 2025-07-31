@@ -1,10 +1,15 @@
 {
   "buildCommand": "npm run build",
-  "installCommand": "npm install --force",
+  "installCommand": "npm install --force --no-cache",
   "framework": "nextjs",
   "functions": {
     "app/page.tsx": {
       "maxDuration": 30
+    }
+  },
+  "build": {
+    "env": {
+      "NODE_ENV": "production"
     }
   }
 } 
