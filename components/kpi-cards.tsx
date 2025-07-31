@@ -10,7 +10,9 @@ import {
   CreditCard,
   User,
   Building2,
-  RotateCcw
+  RotateCcw,
+  Calculator,
+  PiggyBank
 } from 'lucide-react';
 
 interface KPICardsProps {
@@ -38,9 +40,16 @@ export function KPICards({ kpis }: KPICardsProps) {
       bg: 'bg-green-100 dark:bg-green-900/20'
     },
     {
+      title: 'Receita Líquida',
+      value: formatCurrency(kpis.receitaLiquida),
+      icon: TrendingUp,
+      color: 'text-blue-600 dark:text-blue-400',
+      bg: 'bg-blue-100 dark:bg-blue-900/20'
+    },
+    {
       title: 'Lucro Líquido', 
       value: formatCurrency(kpis.lucroLiquido),
-      icon: TrendingUp,
+      icon: PiggyBank,
       color: kpis.lucroLiquido >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400',
       bg: kpis.lucroLiquido >= 0 ? 'bg-green-100 dark:bg-green-900/20' : 'bg-red-100 dark:bg-red-900/20'
     },
@@ -60,10 +69,14 @@ export function KPICards({ kpis }: KPICardsProps) {
     },
     {
       title: 'ROI',
-      value: formatPercentage(kpis.roi),
+      value: kpis.roiAplicavel ? formatPercentage(kpis.roi) : 'N/A',
       icon: RotateCcw,
-      color: kpis.roi >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400',
-      bg: kpis.roi >= 0 ? 'bg-green-100 dark:bg-green-900/20' : 'bg-red-100 dark:bg-red-900/20'
+      color: kpis.roiAplicavel 
+        ? (kpis.roi >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400')
+        : 'text-gray-600 dark:text-gray-400',
+      bg: kpis.roiAplicavel 
+        ? (kpis.roi >= 0 ? 'bg-green-100 dark:bg-green-900/20' : 'bg-red-100 dark:bg-red-900/20')
+        : 'bg-gray-100 dark:bg-gray-900/20'
     },
     {
       title: 'Gastos Pessoais',
@@ -85,6 +98,13 @@ export function KPICards({ kpis }: KPICardsProps) {
       icon: CreditCard,
       color: 'text-gray-600 dark:text-gray-400',
       bg: 'bg-gray-100 dark:bg-gray-900/20'
+    },
+    {
+      title: 'Total de Despesas',
+      value: formatCurrency(kpis.totalDespesas),
+      icon: Calculator,
+      color: 'text-red-600 dark:text-red-400',
+      bg: 'bg-red-100 dark:bg-red-900/20'
     }
   ];
 

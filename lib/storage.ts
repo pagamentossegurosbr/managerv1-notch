@@ -22,6 +22,23 @@ export class Storage {
     this.salvarVendas(todasVendas);
   }
 
+  static salvarVenda(venda: Venda): void {
+    const vendas = this.carregarVendas();
+    const index = vendas.findIndex(v => v.id === venda.id);
+    if (index !== -1) {
+      vendas[index] = venda;
+    } else {
+      vendas.push(venda);
+    }
+    this.salvarVendas(vendas);
+  }
+
+  static deletarVenda(id: string): void {
+    const vendas = this.carregarVendas();
+    const vendasFiltradas = vendas.filter(v => v.id !== id);
+    this.salvarVendas(vendasFiltradas);
+  }
+
   static removerVendasDoMes(ano: number, mes: number): void {
     const vendas = this.carregarVendas();
     const vendasFiltradas = vendas.filter(v => !(v.ano === ano && v.mes === mes));

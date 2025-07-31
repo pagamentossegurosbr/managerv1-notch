@@ -8,14 +8,17 @@ import { Separator } from '@/components/ui/separator';
 import { ImportCSV } from '@/components/import-csv';
 import { KPICards } from '@/components/kpi-cards';
 import { MonthSelector } from '@/components/month-selector';
+import { DateRangeFilter } from '@/components/date-range-filter';
 import { RevenueChart } from '@/components/charts/revenue-chart';
 import { ExpensesChart } from '@/components/charts/expenses-chart';
 import { FinancialCalendar } from '@/components/financial-calendar';
 import { ExpenseManager } from '@/components/expense-manager';
+import { RevenueManager } from '@/components/revenue-manager';
 import { DataExport } from '@/components/data-export';
 import { Storage } from '@/lib/storage';
 import { calcularKPIs } from '@/lib/kpi-calculator';
-import { Venda, Despesa, KPIs, MesAno } from '@/types';
+import { filtrarVendasPorData, filtrarDespesasPorData, obterPeriodoFormatado } from '@/lib/date-filter';
+import { Venda, Despesa, KPIs, MesAno, FiltroData } from '@/types';
 import { 
   TrendingUp, 
   FileSpreadsheet, 
@@ -30,6 +33,7 @@ export default function Home() {
   const [despesas, setDespesas] = useState<Despesa[]>([]);
   const [kpis, setKPIs] = useState<KPIs>({
     receitaBruta: 0,
+    receitaLiquida: 0,
     lucroLiquido: 0,
     ticketMedio: 0,
     totalVendas: 0,
@@ -37,12 +41,18 @@ export default function Home() {
     gastosPessoais: 0,
     gastosProfissionais: 0,
     despesasFixas: 0,
-    despesasVariaveis: 0
+    despesasVariaveis: 0,
+    totalDespesas: 0,
+    investimentoTotal: 0,
+    roiAplicavel: false
   });
   const [mesAnoSelecionado, setMesAnoSelecionado] = useState<MesAno>({
     mes: new Date().getMonth() + 1,
     ano: new Date().getFullYear(),
     label: ''
+  });
+  const [filtroData, setFiltroData] = useState<FiltroData>({
+    ativo: false
   });
   const [activeTab, setActiveTab] = useState('dashboard');
 
@@ -50,13 +60,22 @@ export default function Home() {
     const todasVendas = Storage.carregarVendas();
     const todasDespesas = Storage.carregarDespesas();
 
-    // Filtrar por mês/ano selecionado
-    const vendasFiltradas = todasVendas.filter(
-      v => v.ano === mesAnoSelecionado.ano && v.mes === mesAnoSelecionado.mes
-    );
-    const despesasFiltradas = todasDespesas.filter(
-      d => d.ano === mesAnoSelecionado.ano && d.mes === mesAnoSelecionado.mes
-    );
+    let vendasFiltradas: Venda[];
+    let despesasFiltradas: Despesa[];
+
+    if (filtroData.ativo) {
+      // Se filtro de data está ativo, usar apenas o filtro de data
+      vendasFiltradas = filtrarVendasPorData(todasVendas, filtroData);
+      despesasFiltradas = filtrarDespesasPorData(todasDespesas, filtroData);
+    } else {
+      // Caso contrário, filtrar por mês/ano selecionado
+      vendasFiltradas = todasVendas.filter(
+        v => v.ano === mesAnoSelecionado.ano && v.mes === mesAnoSelecionado.mes
+      );
+      despesasFiltradas = todasDespesas.filter(
+        d => d.ano === mesAnoSelecionado.ano && d.mes === mesAnoSelecionado.mes
+      );
+    }
 
     setVendas(vendasFiltradas);
     setDespesas(despesasFiltradas);
@@ -65,7 +84,7 @@ export default function Home() {
 
   useEffect(() => {
     carregarDados();
-  }, [mesAnoSelecionado]);
+  }, [mesAnoSelecionado, filtroData]);
 
   const handleImportSuccess = () => {
     carregarDados();
@@ -76,6 +95,7 @@ export default function Home() {
     setDespesas([]);
     setKPIs({
       receitaBruta: 0,
+      receitaLiquida: 0,
       lucroLiquido: 0,
       ticketMedio: 0,
       totalVendas: 0,
@@ -83,7 +103,10 @@ export default function Home() {
       gastosPessoais: 0,
       gastosProfissionais: 0,
       despesasFixas: 0,
-      despesasVariaveis: 0
+      despesasVariaveis: 0,
+      totalDespesas: 0,
+      investimentoTotal: 0,
+      roiAplicavel: false
     });
   };
 
@@ -93,10 +116,12 @@ export default function Home() {
   ];
 
   const mesAnoLabel = `${nomesMeses[mesAnoSelecionado.mes - 1]} ${mesAnoSelecionado.ano}`;
+  const periodoAtual = obterPeriodoFormatado(filtroData, mesAnoLabel);
 
   const tabs = [
     { id: 'dashboard', label: 'Dashboard', icon: BarChart3 },
     { id: 'import', label: 'Importar', icon: FileSpreadsheet },
+    { id: 'revenues', label: 'Receitas', icon: TrendingUp },
     { id: 'expenses', label: 'Despesas', icon: Settings },
     { id: 'calendar', label: 'Calendário', icon: Calendar },
     { id: 'export', label: 'Exportar', icon: TrendingUp }
@@ -117,10 +142,12 @@ export default function Home() {
               </p>
             </div>
             <div className="flex items-center gap-4">
-              <MonthSelector
-                selectedMonth={mesAnoSelecionado}
-                onMonthChange={setMesAnoSelecionado}
-              />
+              {!filtroData.ativo && (
+                <MonthSelector
+                  selectedMonth={mesAnoSelecionado}
+                  onMonthChange={setMesAnoSelecionado}
+                />
+              )}
               <Badge variant="secondary" className="px-3 py-1">
                 <User className="mr-1 h-3 w-3" />
                 {vendas.length + despesas.length} registros
@@ -150,11 +177,17 @@ export default function Home() {
         <div className="space-y-8">
           {activeTab === 'dashboard' && (
             <>
+              {/* Filtro de Data */}
+              <DateRangeFilter
+                filtro={filtroData}
+                onFiltroChange={setFiltroData}
+              />
+
               {/* KPIs */}
               <div>
                 <h2 className="text-2xl font-semibold mb-6 flex items-center gap-2">
                   <TrendingUp className="h-6 w-6 text-green-600" />
-                  KPIs - {mesAnoLabel}
+                  KPIs - {periodoAtual}
                 </h2>
                 <KPICards kpis={kpis} />
               </div>
@@ -163,8 +196,8 @@ export default function Home() {
 
               {/* Charts */}
               <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
-                <RevenueChart vendas={vendas} mesAno={mesAnoLabel} />
-                <ExpensesChart despesas={despesas} mesAno={mesAnoLabel} />
+                <RevenueChart vendas={vendas} mesAno={periodoAtual} />
+                <ExpensesChart despesas={despesas} mesAno={periodoAtual} />
               </div>
             </>
           )}
@@ -178,6 +211,19 @@ export default function Home() {
               <div className="max-w-2xl">
                 <ImportCSV onImportSuccess={handleImportSuccess} />
               </div>
+            </div>
+          )}
+
+          {activeTab === 'revenues' && (
+            <div>
+              <h2 className="text-2xl font-semibold mb-6 flex items-center gap-2">
+                <TrendingUp className="h-6 w-6 text-green-600" />
+                Gerenciar Receitas
+              </h2>
+              <RevenueManager
+                mesAno={mesAnoSelecionado}
+                onVendasChange={carregarDados}
+              />
             </div>
           )}
 
@@ -220,7 +266,7 @@ export default function Home() {
                   vendas={vendas}
                   despesas={despesas}
                   kpis={kpis}
-                  mesAno={mesAnoLabel}
+                  mesAno={periodoAtual}
                   onDataReset={handleDataReset}
                 />
               </div>
@@ -243,9 +289,9 @@ export default function Home() {
                   style: 'currency',
                   currency: 'BRL',
                   minimumFractionDigits: 0
-                }).format(kpis.receitaBruta)}
+                }).format(kpis.receitaLiquida)}
               </div>
-              <div className="text-sm text-muted-foreground">Receita</div>
+              <div className="text-sm text-muted-foreground">Receita Líq.</div>
             </div>
             <div>
               <div className="text-2xl font-bold text-purple-600">
@@ -254,8 +300,12 @@ export default function Home() {
               <div className="text-sm text-muted-foreground">Despesas</div>
             </div>
             <div>
-              <div className={`text-2xl font-bold ${kpis.roi >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                {kpis.roi.toFixed(1)}%
+              <div className={`text-2xl font-bold ${
+                !kpis.roiAplicavel 
+                  ? 'text-gray-600' 
+                  : kpis.roi >= 0 ? 'text-green-600' : 'text-red-600'
+              }`}>
+                {kpis.roiAplicavel ? `${kpis.roi.toFixed(1)}%` : 'N/A'}
               </div>
               <div className="text-sm text-muted-foreground">ROI</div>
             </div>

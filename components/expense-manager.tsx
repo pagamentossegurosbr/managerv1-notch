@@ -9,7 +9,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Plus, Edit2, Trash2, DollarSign } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Plus, Edit2, Trash2, DollarSign, TrendingUp } from 'lucide-react';
 import { Despesa } from '@/types';
 import { Storage } from '@/lib/storage';
 import { v4 as uuidv4 } from 'uuid';
@@ -36,7 +37,8 @@ export function ExpenseManager({ despesas, mesAno, onUpdate }: ExpenseManagerPro
     tipo: 'variavel' as 'fixa' | 'variavel' | 'pessoal',
     categoria: '',
     data: '',
-    recorrencia: 'mensal' as 'mensal' | 'anual'
+    recorrencia: 'mensal' as 'mensal' | 'anual',
+    ehInvestimento: false
   });
 
   const resetForm = () => {
@@ -46,7 +48,8 @@ export function ExpenseManager({ despesas, mesAno, onUpdate }: ExpenseManagerPro
       tipo: 'variavel',
       categoria: '',
       data: new Date().toISOString().split('T')[0],
-      recorrencia: 'mensal'
+      recorrencia: 'mensal',
+      ehInvestimento: false
     });
     setEditingExpense(null);
   };
@@ -60,7 +63,8 @@ export function ExpenseManager({ despesas, mesAno, onUpdate }: ExpenseManagerPro
         tipo: despesa.tipo,
         categoria: despesa.categoria,
         data: despesa.data,
-        recorrencia: despesa.recorrencia || 'mensal'
+        recorrencia: despesa.recorrencia || 'mensal',
+        ehInvestimento: despesa.ehInvestimento || false
       });
     } else {
       resetForm();
@@ -98,7 +102,8 @@ export function ExpenseManager({ despesas, mesAno, onUpdate }: ExpenseManagerPro
       recorrencia: formData.tipo === 'fixa' ? formData.recorrencia : undefined,
       ano: data.getFullYear(),
       mes: data.getMonth() + 1,
-      createdAt: editingExpense?.createdAt || new Date().toISOString()
+      createdAt: editingExpense?.createdAt || new Date().toISOString(),
+      ehInvestimento: formData.ehInvestimento
     };
 
     if (editingExpense) {
@@ -256,6 +261,22 @@ export function ExpenseManager({ despesas, mesAno, onUpdate }: ExpenseManagerPro
                   </div>
                 )}
 
+                {(formData.tipo === 'variavel' || formData.tipo === 'fixa') && (
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="ehInvestimento"
+                      checked={formData.ehInvestimento}
+                      onCheckedChange={(checked) => 
+                        setFormData(prev => ({ ...prev, ehInvestimento: checked as boolean }))
+                      }
+                    />
+                    <Label htmlFor="ehInvestimento" className="flex items-center gap-2 text-sm font-medium">
+                      <TrendingUp className="h-4 w-4 text-green-600" />
+                      É um investimento direto no negócio?
+                    </Label>
+                  </div>
+                )}
+
                 <div className="flex justify-end gap-2 pt-4">
                   <Button type="button" variant="outline" onClick={closeDialog}>
                     Cancelar
@@ -291,6 +312,12 @@ export function ExpenseManager({ despesas, mesAno, onUpdate }: ExpenseManagerPro
                       <Badge variant="outline">
                         {despesa.categoria}
                       </Badge>
+                      {despesa.ehInvestimento && (
+                        <Badge className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
+                          <TrendingUp className="mr-1 h-3 w-3" />
+                          Investimento
+                        </Badge>
+                      )}
                     </div>
                     <div className="flex items-center gap-4 text-sm text-muted-foreground">
                       <span>{formatCurrency(despesa.valor)}</span>
