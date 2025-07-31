@@ -1,9 +1,111 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Storage } from '@/lib/storage';
-import { calcularKPIs } from '@/lib/kpi-calculator';
-import { Venda, Despesa, KPIs } from '@/types';
+
+// Tipos básicos
+interface Venda {
+  id: string;
+  data: string;
+  ano: number;
+  mes: number;
+  dia: number;
+  quantidade: number;
+  valorBruto: number;
+  valorLiquido: number;
+  tipoReceita: string;
+}
+
+interface Despesa {
+  id: string;
+  data: string;
+  ano: number;
+  mes: number;
+  dia: number;
+  valor: number;
+  categoria: string;
+  tipo: string;
+  ehInvestimento?: boolean;
+}
+
+interface KPIs {
+  receitaBruta: number;
+  receitaLiquida: number;
+  lucroLiquido: number;
+  ticketMedio: number;
+  totalVendas: number;
+  roi: number;
+  gastosPessoais: number;
+  gastosProfissionais: number;
+  despesasFixas: number;
+  despesasVariaveis: number;
+  totalDespesas: number;
+  investimentoTotal: number;
+  roiAplicavel: boolean;
+}
+
+// Storage básico
+const Storage = {
+  carregarVendas: (): Venda[] => {
+    if (typeof window === 'undefined') return [];
+    const data = localStorage.getItem('vendas');
+    return data ? JSON.parse(data) : [];
+  },
+  
+  carregarDespesas: (): Despesa[] => {
+    if (typeof window === 'undefined') return [];
+    const data = localStorage.getItem('despesas');
+    return data ? JSON.parse(data) : [];
+  }
+};
+
+// Cálculo de KPIs básico
+function calcularKPIs(vendas: Venda[], despesas: Despesa[]): KPIs {
+  const receitaBruta = vendas.reduce((sum, venda) => sum + venda.valorBruto, 0);
+  const receitaLiquida = vendas.reduce((sum, venda) => sum + venda.valorLiquido, 0);
+  const totalVendas = vendas.length;
+  const ticketMedio = totalVendas > 0 ? receitaBruta / totalVendas : 0;
+
+  const gastosPessoais = despesas
+    .filter(d => d.tipo === 'pessoal')
+    .reduce((sum, despesa) => sum + despesa.valor, 0);
+
+  const gastosProfissionais = despesas
+    .filter(d => d.tipo === 'variavel')
+    .reduce((sum, despesa) => sum + despesa.valor, 0);
+
+  const despesasFixas = despesas
+    .filter(d => d.tipo === 'fixa')
+    .reduce((sum, despesa) => sum + despesa.valor, 0);
+
+  const despesasVariaveis = despesas
+    .filter(d => d.tipo === 'variavel')
+    .reduce((sum, despesa) => sum + despesa.valor, 0);
+
+  const investimentoTotal = despesas
+    .filter(despesa => despesa.ehInvestimento === true)
+    .reduce((sum, despesa) => sum + despesa.valor, 0);
+
+  const totalDespesas = gastosPessoais + despesasFixas + despesasVariaveis;
+  const lucroLiquido = receitaLiquida - totalDespesas;
+  const roiAplicavel = investimentoTotal > 0;
+  const roi = roiAplicavel ? (lucroLiquido / investimentoTotal) * 100 : 0;
+
+  return {
+    receitaBruta: Math.round(receitaBruta * 100) / 100,
+    receitaLiquida: Math.round(receitaLiquida * 100) / 100,
+    lucroLiquido: Math.round(lucroLiquido * 100) / 100,
+    ticketMedio: Math.round(ticketMedio * 100) / 100,
+    totalVendas,
+    roi: Math.round(roi * 100) / 100,
+    gastosPessoais: Math.round(gastosPessoais * 100) / 100,
+    gastosProfissionais: Math.round(gastosProfissionais * 100) / 100,
+    despesasFixas: Math.round(despesasFixas * 100) / 100,
+    despesasVariaveis: Math.round(despesasVariaveis * 100) / 100,
+    totalDespesas: Math.round(totalDespesas * 100) / 100,
+    investimentoTotal: Math.round(investimentoTotal * 100) / 100,
+    roiAplicavel
+  };
+}
 
 export default function Home() {
   const [vendas, setVendas] = useState<Venda[]>([]);
@@ -55,90 +157,100 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="container mx-auto px-4 py-8">
+    <div style={{ minHeight: '100vh', backgroundColor: '#f9fafb' }}>
+      <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '2rem 1rem' }}>
         {/* Header */}
-        <div className="mb-8 text-center">
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">
+        <div style={{ marginBottom: '2rem', textAlign: 'center' }}>
+          <h1 style={{ fontSize: '2.5rem', fontWeight: 'bold', color: '#111827', marginBottom: '0.5rem' }}>
             NOTCH Gestão Financeira
           </h1>
-          <p className="text-gray-600">
+          <p style={{ color: '#6b7280' }}>
             Dashboard completo para controle financeiro do seu negócio
           </p>
         </div>
 
         {/* KPI Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <h3 className="text-sm font-medium text-gray-500 mb-2">Receita Bruta</h3>
-            <p className="text-2xl font-bold text-green-600">
+        <div style={{ 
+          display: 'grid', 
+          gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', 
+          gap: '1.5rem', 
+          marginBottom: '2rem' 
+        }}>
+          <div style={{ backgroundColor: 'white', borderRadius: '0.5rem', padding: '1.5rem', boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)' }}>
+            <h3 style={{ fontSize: '0.875rem', fontWeight: '500', color: '#6b7280', marginBottom: '0.5rem' }}>Receita Bruta</h3>
+            <p style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#059669' }}>
               {formatCurrency(kpis.receitaBruta)}
             </p>
           </div>
           
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <h3 className="text-sm font-medium text-gray-500 mb-2">Receita Líquida</h3>
-            <p className="text-2xl font-bold text-blue-600">
+          <div style={{ backgroundColor: 'white', borderRadius: '0.5rem', padding: '1.5rem', boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)' }}>
+            <h3 style={{ fontSize: '0.875rem', fontWeight: '500', color: '#6b7280', marginBottom: '0.5rem' }}>Receita Líquida</h3>
+            <p style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#2563eb' }}>
               {formatCurrency(kpis.receitaLiquida)}
             </p>
           </div>
           
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <h3 className="text-sm font-medium text-gray-500 mb-2">Lucro Líquido</h3>
-            <p className={`text-2xl font-bold ${kpis.lucroLiquido >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+          <div style={{ backgroundColor: 'white', borderRadius: '0.5rem', padding: '1.5rem', boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)' }}>
+            <h3 style={{ fontSize: '0.875rem', fontWeight: '500', color: '#6b7280', marginBottom: '0.5rem' }}>Lucro Líquido</h3>
+            <p style={{ fontSize: '1.5rem', fontWeight: 'bold', color: kpis.lucroLiquido >= 0 ? '#059669' : '#dc2626' }}>
               {formatCurrency(kpis.lucroLiquido)}
             </p>
           </div>
           
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <h3 className="text-sm font-medium text-gray-500 mb-2">Total de Vendas</h3>
-            <p className="text-2xl font-bold text-purple-600">
+          <div style={{ backgroundColor: 'white', borderRadius: '0.5rem', padding: '1.5rem', boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)' }}>
+            <h3 style={{ fontSize: '0.875rem', fontWeight: '500', color: '#6b7280', marginBottom: '0.5rem' }}>Total de Vendas</h3>
+            <p style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#7c3aed' }}>
               {kpis.totalVendas}
             </p>
           </div>
         </div>
 
         {/* Stats Section */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <h3 className="text-sm font-medium text-gray-500 mb-2">Ticket Médio</h3>
-            <p className="text-2xl font-bold text-blue-600">
+        <div style={{ 
+          display: 'grid', 
+          gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', 
+          gap: '1.5rem', 
+          marginBottom: '2rem' 
+        }}>
+          <div style={{ backgroundColor: 'white', borderRadius: '0.5rem', padding: '1.5rem', boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)' }}>
+            <h3 style={{ fontSize: '0.875rem', fontWeight: '500', color: '#6b7280', marginBottom: '0.5rem' }}>Ticket Médio</h3>
+            <p style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#2563eb' }}>
               {formatCurrency(kpis.ticketMedio)}
             </p>
           </div>
           
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <h3 className="text-sm font-medium text-gray-500 mb-2">ROI</h3>
-            <p className={`text-2xl font-bold ${kpis.roiAplicavel ? (kpis.roi >= 0 ? 'text-green-600' : 'text-red-600') : 'text-gray-600'}`}>
+          <div style={{ backgroundColor: 'white', borderRadius: '0.5rem', padding: '1.5rem', boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)' }}>
+            <h3 style={{ fontSize: '0.875rem', fontWeight: '500', color: '#6b7280', marginBottom: '0.5rem' }}>ROI</h3>
+            <p style={{ fontSize: '1.5rem', fontWeight: 'bold', color: kpis.roiAplicavel ? (kpis.roi >= 0 ? '#059669' : '#dc2626') : '#6b7280' }}>
               {kpis.roiAplicavel ? `${kpis.roi.toFixed(1)}%` : 'N/A'}
             </p>
           </div>
           
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <h3 className="text-sm font-medium text-gray-500 mb-2">Total de Despesas</h3>
-            <p className="text-2xl font-bold text-orange-600">
+          <div style={{ backgroundColor: 'white', borderRadius: '0.5rem', padding: '1.5rem', boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)' }}>
+            <h3 style={{ fontSize: '0.875rem', fontWeight: '500', color: '#6b7280', marginBottom: '0.5rem' }}>Total de Despesas</h3>
+            <p style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#ea580c' }}>
               {formatCurrency(kpis.totalDespesas)}
             </p>
           </div>
         </div>
 
         {/* Data Summary */}
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">Resumo dos Dados</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div style={{ backgroundColor: 'white', borderRadius: '0.5rem', padding: '1.5rem', boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)' }}>
+          <h2 style={{ fontSize: '1.25rem', fontWeight: '600', color: '#111827', marginBottom: '1rem' }}>Resumo dos Dados</h2>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
             <div>
-              <h3 className="text-sm font-medium text-gray-500 mb-2">Vendas Importadas</h3>
-              <p className="text-lg font-semibold text-gray-900">{vendas.length} registros</p>
+              <h3 style={{ fontSize: '0.875rem', fontWeight: '500', color: '#6b7280', marginBottom: '0.5rem' }}>Vendas Importadas</h3>
+              <p style={{ fontSize: '1.125rem', fontWeight: '600', color: '#111827' }}>{vendas.length} registros</p>
             </div>
             <div>
-              <h3 className="text-sm font-medium text-gray-500 mb-2">Despesas Cadastradas</h3>
-              <p className="text-lg font-semibold text-gray-900">{despesas.length} registros</p>
+              <h3 style={{ fontSize: '0.875rem', fontWeight: '500', color: '#6b7280', marginBottom: '0.5rem' }}>Despesas Cadastradas</h3>
+              <p style={{ fontSize: '1.125rem', fontWeight: '600', color: '#111827' }}>{despesas.length} registros</p>
             </div>
           </div>
         </div>
 
         {/* Footer */}
-        <div className="text-center text-sm text-gray-500 mt-8">
+        <div style={{ textAlign: 'center', fontSize: '0.875rem', color: '#6b7280', marginTop: '2rem' }}>
           <p>NOTCH Gestão Financeira v1.0 - Desenvolvido com Next.js</p>
         </div>
       </div>
